@@ -20,9 +20,10 @@ pub async fn run() {
     let handler = Arc::new(Handler::new(executor));
 
     let app = Router::new()
+        .route("/", put(put_handler))
+        .route("/", delete(delete_handler))
         .route("/put", put(put_handler))
         .route("/get/{key}", get(get_handler))
-        .route("/delete", delete(delete_handler))
         .with_state(handler.clone());
 
     // run our app with hyper, listening globally on port 3000

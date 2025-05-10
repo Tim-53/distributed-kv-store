@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use axum::Json;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
@@ -34,5 +35,9 @@ impl CommandExecutor {
     pub async fn execute_delete(&self, key: &str) -> Option<(String, String)> {
         let mut store = self.store.write().await;
         store.delete_value(key).await
+    }
+
+    pub async fn handle_get_all(&self) -> Json<std::collections::HashMap<String, String>> {
+        Json(self.store.read().await.get_all().await)
     }
 }

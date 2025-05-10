@@ -15,6 +15,11 @@ pub struct PutRequest {
     pub value: String,
 }
 
+#[derive(Deserialize)]
+pub struct DeleteRequest {
+    pub key: String,
+}
+
 #[derive(Clone)]
 pub struct Handler {
     pub executor: Arc<CommandExecutor>,
@@ -62,7 +67,10 @@ pub async fn get_handler(
 #[debug_handler]
 pub async fn delete_handler(
     State(handler): State<Arc<Handler>>,
-    Path(key): Path<String>,
+    Json(payload): Json<DeleteRequest>,
 ) -> Json<Option<(String, String)>> {
+    Json(handler.handle_delete(&payload.key).await)
+}
+
     Json(handler.handle_delete(&key).await)
 }
