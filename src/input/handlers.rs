@@ -42,6 +42,10 @@ impl Handler {
         self.executor.execute_get(key).await
     }
 
+    pub async fn handle_get_all(&self) -> Json<std::collections::HashMap<String, String>> {
+        self.executor.handle_get_all().await
+    }
+
     pub async fn handle_delete(&self, key: &str) -> Option<(String, String)> {
         self.executor.execute_delete(key).await
     }
@@ -72,5 +76,9 @@ pub async fn delete_handler(
     Json(handler.handle_delete(&payload.key).await)
 }
 
-    Json(handler.handle_delete(&key).await)
+#[debug_handler]
+pub async fn get_all_handler(
+    State(handler): State<Arc<Handler>>,
+) -> Json<std::collections::HashMap<String, String>> {
+    handler.handle_get_all().await
 }

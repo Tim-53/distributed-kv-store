@@ -10,7 +10,7 @@ use axum::{
 };
 
 use command::command_enum::CommandExecutor;
-use input::handlers::{Handler, delete_handler, get_handler, put_handler};
+use input::handlers::{Handler, delete_handler, get_all_handler, get_handler, put_handler};
 use persists::KvStore;
 use tokio::sync::RwLock;
 
@@ -22,7 +22,7 @@ pub async fn run() {
     let app = Router::new()
         .route("/", put(put_handler))
         .route("/", delete(delete_handler))
-        .route("/put", put(put_handler))
+        .route("/", get(get_all_handler))
         .route("/get/{key}", get(get_handler))
         .with_state(handler.clone());
 

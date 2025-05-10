@@ -52,4 +52,8 @@ impl KvStore {
             .remove(key)
             .map(|deleted_value| (key.into(), deleted_value))
     }
+
+    pub async fn get_all(&self) -> HashMap<String, String> {
+        self.store.clone()
+    }
 }
