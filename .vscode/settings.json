@@ -2,9 +2,7 @@
   "github.copilot.enable": {
     "*": false
   },
-  "rust-analyzer.checkOnSave.command": "clippy",
-  "rust-analyzer.checkOnSave.allTargets": true,
-  "rust-analyzer.checkOnSave.extraArgs": ["--all-features"],
+  "rust-analyzer.checkOnSave": true,
   "editor.formatOnSave": true,
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
