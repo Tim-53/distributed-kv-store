@@ -42,7 +42,7 @@ impl Handler {
         self.executor.execute_get(key).await
     }
 
-    pub async fn handle_get_all(&self) -> Json<std::collections::HashMap<String, String>> {
+    pub async fn handle_get_all(&self) -> Json<Vec<(String, String)>> {
         self.executor.handle_get_all().await
     }
 
@@ -77,8 +77,6 @@ pub async fn delete_handler(
 }
 
 #[debug_handler]
-pub async fn get_all_handler(
-    State(handler): State<Arc<Handler>>,
-) -> Json<std::collections::HashMap<String, String>> {
+pub async fn get_all_handler(State(handler): State<Arc<Handler>>) -> Json<Vec<(String, String)>> {
     handler.handle_get_all().await
 }

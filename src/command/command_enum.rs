@@ -24,7 +24,7 @@ impl CommandExecutor {
 
     pub async fn execute_put(&self, key: &str, value: &str) {
         let mut store = self.store.write().await;
-        store.put_value(key, value).await;
+        store.put_value(key, value).await.unwrap();
     }
 
     pub async fn execute_get(&self, key: &str) -> Option<String> {
@@ -37,7 +37,7 @@ impl CommandExecutor {
         store.delete_value(key).await
     }
 
-    pub async fn handle_get_all(&self) -> Json<std::collections::HashMap<String, String>> {
-        Json(self.store.read().await.get_all().await)
+    pub async fn handle_get_all(&self) -> Json<Vec<(String, String)>> {
+        Json(self.store.blocking_read().get_all().await)
     }
 }
