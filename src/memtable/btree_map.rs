@@ -42,7 +42,9 @@ impl MemTable for BTreeMemTable {
     // }
 
     fn delete(&mut self, key: &[u8]) -> Option<Option<Vec<u8>>> {
-        self.data.remove(key)
+        let value = self.data.remove(key);
+        self.data.insert(key.to_vec(), None);
+        value
     }
 
     fn flush(&mut self) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
@@ -83,7 +85,7 @@ mod tests {
 
         match table.get(b"foo") {
             LookupResult::Deleted => {} // okay
-            _ => panic!("Expected Deleted"),
+            other => panic!("Expected Deleted, but got: {:?}", other),
         }
     }
 

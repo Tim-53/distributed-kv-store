@@ -1,4 +1,3 @@
-#[derive(Debug)]
 pub enum LookupResult<'a> {
     NotFound,
     Deleted,
