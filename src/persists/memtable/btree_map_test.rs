@@ -5,7 +5,7 @@ mod tests {
         memtable_trait::{LookupResult, MemTable},
     };
 
-    use super::*;
+    
 
     #[test]
     fn test_insert_and_get() {

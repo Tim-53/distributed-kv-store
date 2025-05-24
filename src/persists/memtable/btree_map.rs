@@ -6,6 +6,12 @@ pub struct BTreeMemTable {
     data: BTreeMap<Vec<u8>, Option<Vec<u8>>>,
 }
 
+impl Default for BTreeMemTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BTreeMemTable {
     pub fn new() -> Self {
         Self {

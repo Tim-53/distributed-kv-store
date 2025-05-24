@@ -3,7 +3,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use crate::persists::sst::sst::SSTableWriter;
+    use crate::persists::sst::sst_writer::SSTableWriter;
 
     #[test]
     fn test_write_simple_sstable() {
@@ -13,7 +13,6 @@ mod tests {
             (b"key3".to_vec(), Some(b"value3".to_vec())),
         ];
 
-        // Gesamtlänge abschätzen (für Vec::with_capacity)
         let estimated_size: usize = entries
             .iter()
             .map(|(k, v)| 4 + k.len() + 4 + v.as_ref().map_or(0, |v| v.len()))
@@ -31,7 +30,7 @@ mod tests {
 
         assert!(file_size > 0);
         assert_eq!(
-            file_size % crate::persists::sst::sst::BLOCK_SIZE,
+            file_size % crate::persists::sst::sst_table::BLOCK_SIZE,
             0,
             "file not block-aligned"
         );

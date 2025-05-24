@@ -23,7 +23,7 @@ impl KvStore {
                 LogCommand::Put { key, value } => store
                     .put_value(&key, &value)
                     .await
-                    .expect(format!("... {value}").as_str()),
+                    .unwrap_or_else(|_| panic!("... {value}")),
                 LogCommand::Delete { key } => {
                     store.delete_value(&key).await;
                 }
