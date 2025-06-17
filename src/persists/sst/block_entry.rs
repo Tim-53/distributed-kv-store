@@ -1,6 +1,6 @@
 use byteorder::{ByteOrder, LittleEndian, WriteBytesExt};
 
-use super::sst_table::SSTableBlock;
+use super::sst_table_block::SSTableBlock;
 
 pub struct BlockEntry {
     buffer: Vec<u8>,

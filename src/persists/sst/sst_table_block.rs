@@ -3,7 +3,7 @@ use super::block_entry::BlockEntry;
 pub const BLOCK_SIZE: usize = 4096; // 4 KB
 const INDEX_INTERVAL: usize = 128; // index every 128th key
 
-const HEADER_SIZE: usize = std::mem::size_of::<u32>();
+pub const HEADER_SIZE: usize = std::mem::size_of::<u32>();
 
 pub struct SSTableBlock {
     entry_buf: Vec<u8>,

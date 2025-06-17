@@ -1,6 +1,5 @@
 pub mod command;
 pub mod input;
-mod memtable;
 pub mod persists;
 
 use std::sync::Arc;

@@ -1,11 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::memtable::{
+    use crate::persists::memtable::{
         btree_map::BTreeMemTable,
         memtable_trait::{LookupResult, MemTable},
     };
-
-    
 
     #[test]
     fn test_insert_and_get() {
@@ -25,8 +23,8 @@ mod tests {
         table.delete(b"foo");
 
         match table.get(b"foo") {
-            LookupResult::Deleted => {} // okay
-            _ => panic!("Expected Deleted"),
+            LookupResult::Deleted => {}
+            result => panic!("Expected Deleted, received {:?}", result),
         }
     }
 

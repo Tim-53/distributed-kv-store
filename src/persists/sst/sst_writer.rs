@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::Path};
 
-use super::{block_entry::BlockEntry, sst_table::SSTableBlock};
+use super::{block_entry::BlockEntry, sst_table_block::SSTableBlock};
 
 pub struct SSTableWriter {}
 

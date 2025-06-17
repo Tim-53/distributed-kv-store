@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum LookupResult<'a> {
     NotFound,
     Deleted,
@@ -13,4 +14,6 @@ pub trait MemTable {
     // ) -> Box<dyn Iterator<Item = (&'a [u8], LookupResult<'a>)> + 'a>;
     fn delete(&mut self, key: &[u8]) -> Option<Option<Vec<u8>>>;
     fn flush(&mut self) -> Vec<(Vec<u8>, Option<Vec<u8>>)>;
+
+    fn has_capacity(&self) -> bool;
 }

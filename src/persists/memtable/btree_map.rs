@@ -48,7 +48,7 @@ impl MemTable for BTreeMemTable {
     // }
 
     fn delete(&mut self, key: &[u8]) -> Option<Option<Vec<u8>>> {
-        self.data.remove(key)
+        self.data.insert(key.to_vec(), None)
     }
 
     fn flush(&mut self) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
