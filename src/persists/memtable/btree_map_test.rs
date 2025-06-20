@@ -5,9 +5,11 @@ mod tests {
         memtable_trait::{LookupResult, MemTable},
     };
 
+    type ActiveTestMemTable = BTreeMemTable<{ 2 * 64 }>;
+
     #[test]
     fn test_insert_and_get() {
-        let mut table = BTreeMemTable::new();
+        let mut table = ActiveTestMemTable::new();
         table.insert(b"foo", b"bar");
 
         match table.get(b"foo") {
@@ -18,7 +20,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        let mut table = BTreeMemTable::new();
+        let mut table = ActiveTestMemTable::new();
         table.insert(b"foo", b"bar");
         table.delete(b"foo");
 
@@ -30,13 +32,13 @@ mod tests {
 
     #[test]
     fn test_not_found() {
-        let table = BTreeMemTable::new();
+        let table = ActiveTestMemTable::new();
         assert!(matches!(table.get(b"missing"), LookupResult::NotFound));
     }
 
     #[test]
     fn test_flush() {
-        let mut table = BTreeMemTable::new();
+        let mut table = ActiveTestMemTable::new();
         table.insert(b"a", b"1");
         table.insert(b"b", b"2");
         table.delete(b"c");

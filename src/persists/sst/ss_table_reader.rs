@@ -1,4 +1,4 @@
-use std::{mem::offset_of, path::Path};
+use std::path::Path;
 
 use byteorder::{ByteOrder, LittleEndian};
 
@@ -86,6 +86,4 @@ impl SSTableReader {
             }
         })
     }
-
-    pub fn find_value_in_file(path: &Path, key: &[u8]) {}
 }

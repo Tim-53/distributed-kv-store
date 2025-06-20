@@ -5,27 +5,33 @@ use crate::persists::memtable::{
 
 use super::wal::{LogCommand, Wal};
 
-pub struct KvStore {
-    store: BTreeMemTable,
+pub struct KvStore<const MAX_SIZE: usize> {
+    pub(crate) store: BTreeMemTable<{ MAX_SIZE }>,
+    pub(crate) flushable_tables: Vec<BTreeMemTable<{ MAX_SIZE }>>,
+    read_from_wal: bool,
     wal: Wal,
 }
 
-impl KvStore {
+impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     pub async fn new() -> Self {
         let mut store = KvStore {
             store: BTreeMemTable::new(),
+            flushable_tables: Vec::new(),
+            read_from_wal: false,
             wal: Wal::new().await.expect("failed to open the wal file"),
         };
-        let wal_entries = self::Wal::read_wal().await;
+        if store.read_from_wal {
+            let wal_entries = self::Wal::read_wal().await;
 
-        for entry in wal_entries.expect("Wal could not be read") {
-            match entry {
-                LogCommand::Put { key, value } => store
-                    .put_value(&key, &value)
-                    .await
-                    .unwrap_or_else(|_| panic!("... {value}")),
-                LogCommand::Delete { key } => {
-                    store.delete_value(&key).await;
+            for entry in wal_entries.expect("Wal could not be read") {
+                match entry {
+                    LogCommand::Put { key, value } => store
+                        .put_value(&key, &value)
+                        .await
+                        .unwrap_or_else(|_| panic!("... {value}")),
+                    LogCommand::Delete { key } => {
+                        store.delete_value(&key).await;
+                    }
                 }
             }
         }
@@ -49,6 +55,21 @@ impl KvStore {
                 value: (value.into()),
             })
             .await;
+
+        if !self
+            .store
+            .has_capacity(BTreeMemTable::<MAX_SIZE>::encoded_len(
+                key.as_bytes(),
+                value.as_bytes(),
+            ))
+        {
+            // memtable is out of capacity so we need to flush it and create a new one
+            let new_mem_table = BTreeMemTable::new();
+            let old_mem_table = std::mem::replace(&mut self.store, new_mem_table);
+            self.flushable_tables.push(old_mem_table);
+            println!(" neue tabele erstellt");
+        }
+
         self.store.insert(key.as_bytes(), value.as_bytes());
 
         result

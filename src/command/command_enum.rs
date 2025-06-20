@@ -6,6 +6,8 @@ use tokio::sync::RwLock;
 
 use crate::persists::KvStore;
 
+const DEFAULT_MEM_SIZE: usize = 64 * 1024;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CommandInput {
     Put { key: String, value: String },
@@ -14,11 +16,11 @@ pub enum CommandInput {
 }
 
 pub struct CommandExecutor {
-    store: Arc<RwLock<KvStore>>,
+    store: Arc<RwLock<KvStore<DEFAULT_MEM_SIZE>>>,
 }
 
 impl CommandExecutor {
-    pub fn new(store: Arc<RwLock<KvStore>>) -> Self {
+    pub fn new(store: Arc<RwLock<KvStore<DEFAULT_MEM_SIZE>>>) -> Self {
         Self { store }
     }
 
