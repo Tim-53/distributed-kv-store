@@ -2,7 +2,7 @@
 mod tests {
     use crate::persists::KvStore;
 
-    type TestKvStore = KvStore<{ 64 }>;
+    type TestKvStore = KvStore<64>;
 
     #[tokio::test]
     async fn test_insert_and_get() {

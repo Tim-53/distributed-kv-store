@@ -26,7 +26,7 @@ mod tests {
 
         match table.get(b"foo") {
             LookupResult::Deleted => {}
-            result => panic!("Expected Deleted, received {:?}", result),
+            result => panic!("Expected Deleted, received {result:?}"),
         }
     }
 

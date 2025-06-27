@@ -44,7 +44,7 @@ impl Wal {
             match from_str::<LogCommand>(&line) {
                 Ok(cmd) => entries.push(cmd),
                 Err(e) => {
-                    eprintln!("Skipping invalid WAL line: {} — {:?}", line, e);
+                    eprintln!("Skipping invalid WAL line: {line} — {e:?}");
                 }
             }
         }
