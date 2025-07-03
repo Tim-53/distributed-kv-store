@@ -7,8 +7,15 @@ use tokio::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LogCommand {
-    Put { key: String, value: String },
-    Delete { key: String },
+    Put {
+        key: String,
+        value: String,
+        seq_number: u64,
+    },
+    Delete {
+        key: String,
+        seq_number: u64,
+    },
 }
 
 pub struct Wal {

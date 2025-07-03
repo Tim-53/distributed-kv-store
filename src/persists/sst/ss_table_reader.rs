@@ -20,6 +20,11 @@ impl SSTableReader {
                     LittleEndian::read_u32(&block[offset..offset + HEADER_SIZE]) as usize;
                 offset += HEADER_SIZE;
 
+                if key_length == 0 {
+                    //keylength = 0 => file has no more entries
+                    return;
+                }
+
                 let key = &block[offset..(offset + key_length)];
 
                 offset += key_length;
@@ -33,8 +38,13 @@ impl SSTableReader {
 
                 offset += value_length;
 
+                let seq_number = LittleEndian::read_u64(&block[offset..(offset + 64)]);
+
+                offset += 64;
+
                 println!("{}", String::from_utf8(key.to_vec()).unwrap());
                 println!("{}", String::from_utf8(value.to_vec()).unwrap());
+                println!("{seq_number:?}");
             }
         }
     }

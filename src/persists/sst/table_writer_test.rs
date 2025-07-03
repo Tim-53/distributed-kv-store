@@ -10,14 +10,14 @@ mod tests {
     #[test]
     fn test_write_simple_sstable() {
         let entries = vec![
-            (b"key1".to_vec(), Some(b"value1".to_vec())),
-            (b"key2".to_vec(), Some(b"value2".to_vec())),
-            (b"key3".to_vec(), Some(b"value3".to_vec())),
+            (b"key1".to_vec(), Some(b"value1".to_vec()), 1),
+            (b"key2".to_vec(), Some(b"value2".to_vec()), 2),
+            (b"key3".to_vec(), Some(b"value3".to_vec()), 3),
         ];
 
         let estimated_size: usize = entries
             .iter()
-            .map(|(k, v)| 4 + k.len() + 4 + v.as_ref().map_or(0, |v| v.len()))
+            .map(|(k, v, s)| 4 + k.len() + 4 + v.as_ref().map_or(0, |v| v.len() + 64))
             .sum();
 
         let tmp_file = PathBuf::from("test_sstable.sst");

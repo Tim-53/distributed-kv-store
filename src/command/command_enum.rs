@@ -25,18 +25,19 @@ impl CommandExecutor {
     }
 
     pub async fn execute_put(&self, key: &str, value: &str) {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
         store.put_value(key, value).await.unwrap();
     }
 
     pub async fn execute_get(&self, key: &str) -> Option<String> {
         let store = self.store.read().await;
-        store.get_value(key)
+        store.get_value(key).await
     }
 
     pub async fn execute_delete(&self, key: &str) -> Option<(String, String)> {
         let mut store = self.store.write().await;
-        store.delete_value(key).await
+        //TODO use seqnumber?
+        store.delete_value(key).await.0
     }
 
     pub async fn handle_get_all(&self) -> Json<Vec<(String, String)>> {

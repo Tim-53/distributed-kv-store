@@ -7,7 +7,7 @@ pub struct BlockEntry {
 }
 
 impl BlockEntry {
-    pub fn from_parts(key: &[u8], value: &[u8]) -> Self {
+    pub fn from_parts(key: &[u8], value: &[u8], &seq_number: &u64) -> Self {
         let mut buffer = Vec::with_capacity(4 + key.len() + 4 + value.len());
 
         buffer.write_u32::<LittleEndian>(key.len() as u32).unwrap();
@@ -16,6 +16,7 @@ impl BlockEntry {
             .write_u32::<LittleEndian>(value.len() as u32)
             .unwrap();
         buffer.extend_from_slice(value);
+        buffer.write_u64::<LittleEndian>(seq_number);
 
         BlockEntry { buffer }
     }
