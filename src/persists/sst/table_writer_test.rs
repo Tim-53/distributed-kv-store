@@ -17,7 +17,12 @@ mod tests {
 
         let estimated_size: usize = entries
             .iter()
-            .map(|(k, v, s)| 4 + k.len() + 4 + v.as_ref().map_or(0, |v| v.len() + 64))
+            .map(|(k, v, _s)| {
+                4 + k.len()
+                    + 4
+                    + v.as_ref()
+                        .map_or(0, |v| v.len() + std::mem::size_of::<u64>())
+            })
             .sum();
 
         let tmp_file = PathBuf::from("test_sstable.sst");

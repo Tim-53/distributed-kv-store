@@ -60,9 +60,39 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     }
     pub async fn get_value(&self, key: &str) -> Option<String> {
         let store = self.store.read().await;
-        match store.get(key.as_bytes()) {
-            LookupResult::Found((bytes, _seq_number)) => {
-                Some(String::from_utf8(bytes.to_vec()).expect("Value is not a valid Utf8 String"))
+        if let LookupResult::Found((bytes, _seq_number)) = store.get(key.as_bytes()) {
+            return Some(
+                String::from_utf8(bytes.to_vec()).expect("Value is not a valid Utf8 String"),
+            );
+        }
+
+        // the value might be in a flushable table
+        let flushable_tables = self.flushable_tables.read().await;
+
+        let values_from_flushable: Vec<LookupResult> = flushable_tables
+            .iter()
+            .map(|table| table.get(key.as_bytes()))
+            .filter(|res| !matches!(res, LookupResult::NotFound))
+            .collect();
+
+        // we must ensure that we return the value with the highest valid sequence number
+        let highest = values_from_flushable.into_iter().max_by(|a, b| {
+            let a_seq = match a {
+                LookupResult::Deleted(seq) => *seq,
+                LookupResult::Found((_, seq)) => *seq,
+                LookupResult::NotFound => 0,
+            };
+            let b_seq = match b {
+                LookupResult::Deleted(seq) => *seq,
+                LookupResult::Found((_, seq)) => *seq,
+                LookupResult::NotFound => 0,
+            };
+            a_seq.cmp(&b_seq)
+        });
+
+        match highest {
+            Some(LookupResult::Found((value_bytes, _))) => {
+                Some(String::from_utf8_lossy(value_bytes).to_string())
             }
             _ => None,
         }

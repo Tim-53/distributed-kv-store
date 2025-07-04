@@ -15,7 +15,7 @@ impl SSTableReader {
         //For now we don't validate the bonds in the block and just assume the are correct
         for block in buffer.chunks_exact(BLOCK_SIZE) {
             let mut offset = 0;
-            while (offset + 2 * HEADER_SIZE + 1) < BLOCK_SIZE {
+            while (offset + 2 * HEADER_SIZE + 1 + 64) < BLOCK_SIZE {
                 let key_length =
                     LittleEndian::read_u32(&block[offset..offset + HEADER_SIZE]) as usize;
                 offset += HEADER_SIZE;

@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::persists::KvStore;
+    use crate::persists::{
+        KvStore,
+        memtable::{btree_map::BTreeMemTable, memtable_trait::MemTable},
+    };
     use std::sync::Arc;
     use tokio::task::JoinSet;
 
@@ -91,8 +94,7 @@ mod tests {
             join_set.spawn(async move { store.put_value(&key, &value).await.expect("put failed") });
         }
 
-        // Einsammeln der Ergebnisse
-        let mut seq_nums: Vec<u64> = Vec::with_capacity(55000);
+        let mut seq_nums: Vec<u64> = Vec::with_capacity(12000);
 
         while let Some(result) = join_set.join_next().await {
             let seq = result.expect("task panicked");
@@ -111,5 +113,46 @@ mod tests {
                 seq_nums[i]
             );
         }
+    }
+
+    #[tokio::test]
+    async fn value_from_mem_is_returned_over_flushable() {
+        let store = Arc::new(TestKvStore::new().await);
+
+        let mut active_memtable = BTreeMemTable::<64>::new();
+        active_memtable.insert(b"key1", b"correct_value", 300);
+
+        {
+            let mut store_guard = store.store.write().await;
+            *store_guard = active_memtable;
+        }
+
+        let mut flush1 = BTreeMemTable::<64>::new();
+        flush1.insert(b"key1", b"outdated_low", 100);
+
+        let mut flush2 = BTreeMemTable::<64>::new();
+        flush2.insert(b"key1", b"outdated_high", 200);
+
+        let mut flushables_guard = store.flushable_tables.write().await;
+        *flushables_guard = vec![flush1, flush2];
+
+        let result = store.get_value("key1").await;
+        assert_eq!(result, Some("correct_value".into()));
+    }
+    #[tokio::test]
+    async fn value_is_selected_from_highest_seq_flushable_when_memtable_empty() {
+        let store = Arc::new(TestKvStore::new().await);
+
+        let mut flush1 = BTreeMemTable::<64>::new();
+        flush1.insert(b"key1", b"outdated_low", 100);
+
+        let mut flush2 = BTreeMemTable::<64>::new();
+        flush2.insert(b"key1", b"correct_value", 200);
+
+        let mut flushables_guard = store.flushable_tables.write().await;
+        *flushables_guard = vec![flush1, flush2];
+
+        let result = store.get_value("key1").await;
+        assert_eq!(result, Some("correct_value".into()));
     }
 }

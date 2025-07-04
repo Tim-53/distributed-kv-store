@@ -28,10 +28,9 @@ mod tests {
         table.insert(b"foo", b"bar", seq_number);
         seq_number += 1;
         table.delete(b"foo", seq_number);
-        seq_number += 1;
 
         match table.get(b"foo") {
-            LookupResult::Deleted(seq_number) => {}
+            LookupResult::Deleted(_seq_number) => {}
             result => panic!("Expected Deleted, received {result:?}"),
         }
     }
