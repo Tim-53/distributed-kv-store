@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::RwLock;
 
@@ -9,7 +9,7 @@ use crate::persists::{
 
 #[tokio::test]
 async fn flush_worker() {
-    let flushable_tables = Arc::new(RwLock::new(Vec::new()));
+    let flushable_tables = Arc::new(RwLock::new(HashMap::new()));
 
     for j in 0..2 {
         let mut table = BTreeMemTable::<640>::new();
@@ -21,7 +21,7 @@ async fn flush_worker() {
                 j * i,
             );
         }
-        flushable_tables.write().await.push(Arc::new(table));
+        flushable_tables.write().await.insert(j, Arc::new(table));
     }
 
     let (flush_tx, flush_rx) = tokio::sync::mpsc::channel(16);
@@ -41,7 +41,7 @@ async fn flush_worker() {
 
     for _ in 0..2 {
         match flush_result_rx.recv().await.expect("missing flush result") {
-            Ok(path) => {
+            Ok((id, path)) => {
                 assert!(
                     path.exists(),
                     "Expected flushed SSTable at {}, but it does not exist",
@@ -53,10 +53,8 @@ async fn flush_worker() {
         }
     }
 
-    // optional: flush_tx droppen, falls Worker auf Channel-Ende wartet
     drop(flush_tx);
 
-    // Aufräumen (SSTable-Dateien löschen)
     for path in flushed_paths {
         tokio::fs::remove_file(&path)
             .await

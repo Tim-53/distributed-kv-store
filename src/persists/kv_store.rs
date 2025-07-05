@@ -1,4 +1,7 @@
-use std::sync::{Arc, atomic::AtomicU64};
+use std::{
+    collections::HashMap,
+    sync::{Arc, atomic::AtomicU64},
+};
 
 use tokio::sync::{Mutex, RwLock, mpsc};
 
@@ -7,24 +10,25 @@ use crate::persists::{
         btree_map::BTreeMemTable,
         memtable_trait::{LookupResult, MemTable},
     },
-    sst::flush_worker::{FlushCommand, FlushWorker},
+    sst::flush_worker::{FlushCommand, FlushResult, FlushWorker},
 };
 
 use super::wal::{LogCommand, Wal};
 
 pub struct KvStore<const MAX_SIZE: usize> {
     pub(crate) store: Arc<RwLock<BTreeMemTable<{ MAX_SIZE }>>>,
-    pub(crate) flushable_tables: Arc<RwLock<Vec<Arc<BTreeMemTable<{ MAX_SIZE }>>>>>,
+    pub(crate) flushable_tables: Arc<RwLock<HashMap<u64, Arc<BTreeMemTable<{ MAX_SIZE }>>>>>,
     read_from_wal: bool,
     wal: Arc<Mutex<Wal>>,
     sequence_number_counter: AtomicU64,
     flush_worker: Arc<FlushWorker<{ MAX_SIZE }>>,
     sender: mpsc::Sender<FlushCommand>,
+    receiver: mpsc::Receiver<FlushResult>,
 }
 
 impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     pub async fn new() -> Self {
-        let flushable_tables = Arc::new(RwLock::new(Vec::new()));
+        let flushable_tables = Arc::new(RwLock::new(HashMap::new()));
 
         let (flush_tx, flush_rx) = tokio::sync::mpsc::channel(16);
 
@@ -40,6 +44,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
             sequence_number_counter: AtomicU64::new(0),
             flush_worker: Arc::new(FlushWorker::new(flushable_tables)),
             sender: flush_tx,
+            receiver: flush_result_rx,
         };
         if store.read_from_wal {
             let wal_entries = self::Wal::read_wal().await;
@@ -78,6 +83,8 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
 
         store
     }
+
+
     pub async fn get_value(&self, key: &str) -> Option<String> {
         let store = self.store.read().await;
         if let LookupResult::Found((bytes, _seq_number)) = store.get(key.as_bytes()) {
@@ -91,7 +98,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
 
         let values_from_flushable: Vec<LookupResult> = flushable_tables
             .iter()
-            .map(|table| table.get(key.as_bytes()))
+            .map(|(id, table)| table.get(key.as_bytes()))
             .filter(|res| !matches!(res, LookupResult::NotFound))
             .collect();
 
@@ -139,7 +146,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
                 // Take ownership of current table and replace with new
                 let old_table = std::mem::take(&mut *store_guard);
                 let mut flushables = self.flushable_tables.write().await;
-                flushables.push(Arc::new(old_table));
+                flushables.insert(seq_number, Arc::new(old_table));
                 println!("new table was created");
                 //TODO handle result
                 let _ = self.sender.send(FlushCommand::FlushAll).await;

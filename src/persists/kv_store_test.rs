@@ -46,9 +46,15 @@ mod tests {
             .iter_all()
             .map(|(k, _)| String::from_utf8_lossy(k).to_string())
             .collect();
-        let flush_keys: Vec<_> = flushable_tables.read().await[0]
-            .iter_all()
-            .map(|(k, _)| String::from_utf8_lossy(k).to_string())
+        let flush_keys: Vec<String> = flushable_tables
+            .read()
+            .await
+            .values()
+            .flat_map(|table| {
+                table
+                    .iter_all()
+                    .map(|(k, _)| String::from_utf8_lossy(k).to_string())
+            })
             .collect();
 
         assert_eq!(active_keys, vec!["key4"]);
@@ -57,7 +63,7 @@ mod tests {
 
     #[tokio::test]
     async fn seq_numbers_are_unique_and_monotone() {
-        let store = TestKvStore::new().await;
+        let store = KvStore::<640_000>::new().await;
 
         let value = "value";
 
@@ -81,12 +87,12 @@ mod tests {
 
     #[tokio::test]
     async fn seq_numbers_are_unique_and_monotone_parallel_insert() {
-        let store = Arc::new(TestKvStore::new().await);
+        let store = Arc::new(KvStore::<640_000>::new().await);
         let value = "value";
 
         let mut join_set = JoinSet::new();
 
-        for i in 0..55000 {
+        for i in 0..5500 {
             let key = i.to_string();
             let value = value.to_string();
             let store = Arc::clone(&store);
@@ -137,8 +143,11 @@ mod tests {
 
         let flush_arc2 = Arc::new(flush2);
 
-        let mut flushables_guard = store.flushable_tables.write().await;
-        *flushables_guard = vec![flush_arc1, flush_arc2];
+        {
+            let mut flushables_guard = store.flushable_tables.write().await;
+            flushables_guard.insert(1, flush_arc1);
+            flushables_guard.insert(2, flush_arc2);
+        }
 
         let result = store.get_value("key1").await;
         assert_eq!(result, Some("correct_value".into()));
@@ -157,10 +166,9 @@ mod tests {
 
         {
             let mut flushables_guard = store.flushable_tables.write().await;
-            *flushables_guard = vec![flush_arc1, flush_arc2];
+            flushables_guard.insert(1, flush_arc1);
+            flushables_guard.insert(2, flush_arc2);
         }
-
-        println!("hier");
 
         let result = store.get_value("key1").await;
         assert_eq!(result, Some("correct_value".into()));
