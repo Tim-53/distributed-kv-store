@@ -10,14 +10,14 @@ mod tests {
     #[test]
     fn test_write_simple_sstable() {
         let entries = vec![
-            (b"key1".to_vec(), Some(b"value1".to_vec()), 1),
-            (b"key2".to_vec(), Some(b"value2".to_vec()), 2),
-            (b"key3".to_vec(), Some(b"value3".to_vec()), 3),
+            (b"key1".to_vec(), (Some(b"value1".to_vec()), 1)),
+            (b"key2".to_vec(), (Some(b"value2".to_vec()), 2)),
+            (b"key3".to_vec(), (Some(b"value3".to_vec()), 3)),
         ];
 
         let estimated_size: usize = entries
             .iter()
-            .map(|(k, v, _s)| {
+            .map(|(k, (v, _s))| {
                 4 + k.len()
                     + 4
                     + v.as_ref()
@@ -29,7 +29,10 @@ mod tests {
 
         let _ = fs::remove_file(&tmp_file);
 
-        SSTableWriter::write_to_file(&tmp_file, entries, estimated_size as u32)
+        let writer = SSTableWriter {};
+
+        writer
+            .write_to_file(&tmp_file, entries, estimated_size as u32)
             .expect("write_to_file failed");
         assert!(tmp_file.exists());
         let metadata = fs::metadata(&tmp_file).unwrap();

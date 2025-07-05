@@ -6,8 +6,9 @@ pub struct SSTableWriter {}
 
 impl SSTableWriter {
     pub fn write_to_file(
+        &self,
         path: &Path,
-        entries: Vec<(Vec<u8>, Option<Vec<u8>>, u64)>,
+        entries: Vec<(Vec<u8>, (Option<Vec<u8>>, u64))>,
         size: u32,
     ) -> Result<usize, std::io::Error> {
         let mut file = File::create_new(path)?;
@@ -18,7 +19,7 @@ impl SSTableWriter {
 
         let mut current_block = SSTableBlock::new();
 
-        for (key, value_opt, seq_number) in &entries {
+        for (key, (value_opt, seq_number)) in &entries {
             let block_entry =
                 BlockEntry::from_parts(key, &value_opt.clone().unwrap_or_default(), seq_number);
 

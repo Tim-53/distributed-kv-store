@@ -14,7 +14,7 @@ pub trait MemTable {
     //     range: impl RangeBounds<&'a [u8]>,
     // ) -> Box<dyn Iterator<Item = (&'a [u8], LookupResult<'a>)> + 'a>;
     fn delete(&mut self, key: &[u8], seq_number: u64) -> Option<MemTableValue>;
-    fn flush(&mut self) -> Vec<(Vec<u8>, MemTableValue)>;
+    fn flush(&self) -> Vec<(Vec<u8>, MemTableValue)>;
 
     fn bytes_used(&self) -> usize;
     fn inc_bytes_used(&mut self, delta: usize);

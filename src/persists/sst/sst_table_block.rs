@@ -1,13 +1,13 @@
 use super::block_entry::BlockEntry;
 
 pub const BLOCK_SIZE: usize = 4096; // 4 KB
-const INDEX_INTERVAL: usize = 128; // index every 128th key
+// const INDEX_INTERVAL: usize = 128; // index every 128th key
 
 pub const HEADER_SIZE: usize = std::mem::size_of::<u32>();
 
 pub struct SSTableBlock {
     entry_buf: Vec<u8>,
-    start_value: (Vec<u8>, Vec<u8>),
+    // start_value: (Vec<u8>, Vec<u8>),
 }
 
 impl Default for SSTableBlock {
@@ -20,7 +20,7 @@ impl SSTableBlock {
     pub fn new() -> Self {
         Self {
             entry_buf: Vec::new(),
-            start_value: (Vec::new(), Vec::new()),
+            // start_value: (Vec::new(), Vec::new()),
         }
     }
     pub fn append_block(&mut self, mut block_entry: BlockEntry) {

@@ -1,32 +1,45 @@
 use std::sync::{Arc, atomic::AtomicU64};
 
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, mpsc};
 
-use crate::persists::memtable::{
-    btree_map::BTreeMemTable,
-    memtable_trait::{LookupResult, MemTable},
+use crate::persists::{
+    memtable::{
+        btree_map::BTreeMemTable,
+        memtable_trait::{LookupResult, MemTable},
+    },
+    sst::flush_worker::{FlushCommand, FlushWorker},
 };
 
 use super::wal::{LogCommand, Wal};
 
 pub struct KvStore<const MAX_SIZE: usize> {
     pub(crate) store: Arc<RwLock<BTreeMemTable<{ MAX_SIZE }>>>,
-    pub(crate) flushable_tables: Arc<RwLock<Vec<BTreeMemTable<{ MAX_SIZE }>>>>,
+    pub(crate) flushable_tables: Arc<RwLock<Vec<Arc<BTreeMemTable<{ MAX_SIZE }>>>>>,
     read_from_wal: bool,
     wal: Arc<Mutex<Wal>>,
     sequence_number_counter: AtomicU64,
+    flush_worker: Arc<FlushWorker<{ MAX_SIZE }>>,
+    sender: mpsc::Sender<FlushCommand>,
 }
 
 impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     pub async fn new() -> Self {
+        let flushable_tables = Arc::new(RwLock::new(Vec::new()));
+
+        let (flush_tx, flush_rx) = tokio::sync::mpsc::channel(16);
+
+        let (flush_result_tx, flush_result_rx) = tokio::sync::mpsc::channel(16);
+
         let mut store = KvStore {
             store: Arc::new(RwLock::new(BTreeMemTable::new())),
-            flushable_tables: Arc::new(RwLock::new(Vec::new())),
+            flushable_tables: flushable_tables.clone(),
             read_from_wal: false,
             wal: Arc::new(Mutex::new(
                 Wal::new().await.expect("failed to open the wal file"),
             )),
             sequence_number_counter: AtomicU64::new(0),
+            flush_worker: Arc::new(FlushWorker::new(flushable_tables)),
+            sender: flush_tx,
         };
         if store.read_from_wal {
             let wal_entries = self::Wal::read_wal().await;
@@ -55,6 +68,13 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
                 }
             }
         }
+
+        tokio::spawn({
+            let flush_worker = store.flush_worker.clone();
+            async move {
+                flush_worker.flush(flush_rx, flush_result_tx).await;
+            }
+        });
 
         store
     }
@@ -119,8 +139,10 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
                 // Take ownership of current table and replace with new
                 let old_table = std::mem::take(&mut *store_guard);
                 let mut flushables = self.flushable_tables.write().await;
-                flushables.push(old_table);
+                flushables.push(Arc::new(old_table));
                 println!("new table was created");
+                //TODO handle result
+                let _ = self.sender.send(FlushCommand::FlushAll).await;
             }
 
             store_guard.insert(key.as_bytes(), value.as_bytes(), seq_number);

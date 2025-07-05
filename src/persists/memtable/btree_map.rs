@@ -65,14 +65,12 @@ impl<const MAX_SIZE: usize> MemTable for BTreeMemTable<MAX_SIZE> {
         }
     }
 
-    fn flush(&mut self) -> Vec<(Vec<u8>, MemTableValue)> {
+    fn flush(&self) -> Vec<(Vec<u8>, MemTableValue)> {
         let flushed: Vec<_> = self
             .data
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .map(|(key, (value, seq_number))| (key.clone(), (value.clone(), *seq_number)))
             .collect();
-        self.data.clear();
-        self.used_bytes = 0;
         flushed
     }
 

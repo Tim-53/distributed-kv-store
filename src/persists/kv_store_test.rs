@@ -130,11 +130,15 @@ mod tests {
         let mut flush1 = BTreeMemTable::<64>::new();
         flush1.insert(b"key1", b"outdated_low", 100);
 
+        let flush_arc1 = Arc::new(flush1);
+
         let mut flush2 = BTreeMemTable::<64>::new();
         flush2.insert(b"key1", b"outdated_high", 200);
 
+        let flush_arc2 = Arc::new(flush2);
+
         let mut flushables_guard = store.flushable_tables.write().await;
-        *flushables_guard = vec![flush1, flush2];
+        *flushables_guard = vec![flush_arc1, flush_arc2];
 
         let result = store.get_value("key1").await;
         assert_eq!(result, Some("correct_value".into()));
@@ -142,15 +146,21 @@ mod tests {
     #[tokio::test]
     async fn value_is_selected_from_highest_seq_flushable_when_memtable_empty() {
         let store = Arc::new(TestKvStore::new().await);
-
+        println!("hier0");
         let mut flush1 = BTreeMemTable::<64>::new();
         flush1.insert(b"key1", b"outdated_low", 100);
+        let flush_arc1 = Arc::new(flush1);
 
         let mut flush2 = BTreeMemTable::<64>::new();
         flush2.insert(b"key1", b"correct_value", 200);
+        let flush_arc2 = Arc::new(flush2);
 
-        let mut flushables_guard = store.flushable_tables.write().await;
-        *flushables_guard = vec![flush1, flush2];
+        {
+            let mut flushables_guard = store.flushable_tables.write().await;
+            *flushables_guard = vec![flush_arc1, flush_arc2];
+        }
+
+        println!("hier");
 
         let result = store.get_value("key1").await;
         assert_eq!(result, Some("correct_value".into()));
