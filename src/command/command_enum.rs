@@ -16,11 +16,11 @@ pub enum CommandInput {
 }
 
 pub struct CommandExecutor {
-    store: Arc<RwLock<KvStore<DEFAULT_MEM_SIZE>>>,
+    store: Arc<RwLock<Arc<KvStore<DEFAULT_MEM_SIZE>>>>,
 }
 
 impl CommandExecutor {
-    pub fn new(store: Arc<RwLock<KvStore<DEFAULT_MEM_SIZE>>>) -> Self {
+    pub fn new(store: Arc<RwLock<Arc<KvStore<DEFAULT_MEM_SIZE>>>>) -> Self {
         Self { store }
     }
 
@@ -35,7 +35,7 @@ impl CommandExecutor {
     }
 
     pub async fn execute_delete(&self, key: &str) -> Option<(String, String)> {
-        let mut store = self.store.write().await;
+        let store = self.store.write().await;
         //TODO use seqnumber?
         store.delete_value(key).await.0
     }

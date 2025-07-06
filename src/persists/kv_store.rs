@@ -23,18 +23,22 @@ pub struct KvStore<const MAX_SIZE: usize> {
     sequence_number_counter: AtomicU64,
     flush_worker: Arc<FlushWorker<{ MAX_SIZE }>>,
     sender: mpsc::Sender<FlushCommand>,
-    receiver: mpsc::Receiver<FlushResult>,
 }
 
 impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
-    pub async fn new() -> Self {
-        let flushable_tables = Arc::new(RwLock::new(HashMap::new()));
+    pub async fn new() -> Arc<Self> {
+        let (flush_result_tx, flush_result_rx) = tokio::sync::mpsc::channel(16);
+        Self::new_with_channels(flush_result_tx, flush_result_rx).await
+    }
 
+    pub async fn new_with_channels(
+        flush_result_tx: tokio::sync::mpsc::Sender<FlushResult>,
+        flush_result_rx: tokio::sync::mpsc::Receiver<FlushResult>,
+    ) -> Arc<Self> {
+        let flushable_tables = Arc::new(RwLock::new(HashMap::new()));
         let (flush_tx, flush_rx) = tokio::sync::mpsc::channel(16);
 
-        let (flush_result_tx, flush_result_rx) = tokio::sync::mpsc::channel(16);
-
-        let mut store = KvStore {
+        let store = Arc::new(KvStore {
             store: Arc::new(RwLock::new(BTreeMemTable::new())),
             flushable_tables: flushable_tables.clone(),
             read_from_wal: false,
@@ -44,31 +48,17 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
             sequence_number_counter: AtomicU64::new(0),
             flush_worker: Arc::new(FlushWorker::new(flushable_tables)),
             sender: flush_tx,
-            receiver: flush_result_rx,
-        };
+        });
+
         if store.read_from_wal {
-            let wal_entries = self::Wal::read_wal().await;
-
-            for entry in wal_entries.expect("Wal could not be read") {
-                //TODO use original sequence numbers here
+            let wal_entries = Wal::read_wal().await;
+            for entry in wal_entries.expect("Wal read failed") {
                 match entry {
-                    LogCommand::Put {
-                        key,
-                        value,
-                        seq_number: _,
-                    } => {
-                        store
-                            .put_value(&key, &value)
-                            .await
-                            .unwrap_or_else(|_| panic!("put failed for value: {value}"));
+                    LogCommand::Put { key, value, .. } => {
+                        store.put_value(&key, &value).await.expect("put failed");
                     }
-
-                    LogCommand::Delete { key, seq_number: _ } => {
-                        store
-                            .delete_value(&key)
-                            .await
-                            .0
-                            .unwrap_or_else(|| panic!("delete failed for key: {key}"));
+                    LogCommand::Delete { key, .. } => {
+                        store.delete_value(&key).await.0.expect("delete failed");
                     }
                 }
             }
@@ -81,9 +71,29 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
             }
         });
 
+        let store_clone = Arc::clone(&store);
+        tokio::spawn(async move {
+            store_clone.event_loop(flush_result_rx).await;
+        });
+
         store
     }
 
+    async fn event_loop(&self, mut receiver: mpsc::Receiver<FlushResult>) {
+        while let Some(res) = receiver.recv().await {
+            match res {
+                Ok((id, _path)) => {
+                    //TODO add path to lsm tree
+                    let mut guard = self.flushable_tables.write().await;
+                    guard.remove(&id);
+                }
+                Err(_) => {
+                    //check if error can be handled
+                    continue;
+                }
+            }
+        }
+    }
 
     pub async fn get_value(&self, key: &str) -> Option<String> {
         let store = self.store.read().await;
@@ -158,7 +168,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
         Ok(seq_number)
     }
 
-    pub async fn delete_value(&mut self, key: &str) -> (Option<(String, String)>, u64) {
+    pub async fn delete_value(&self, key: &str) -> (Option<(String, String)>, u64) {
         let seq_number = self.get_next_sequence_number();
         //TODO return result
 

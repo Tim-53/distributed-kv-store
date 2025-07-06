@@ -3,6 +3,7 @@ mod tests {
     use crate::persists::{
         KvStore,
         memtable::{btree_map::BTreeMemTable, memtable_trait::MemTable},
+        sst::flush_worker::FlushResult,
     };
     use std::sync::Arc;
     use tokio::task::JoinSet;
@@ -26,7 +27,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_will_be_flushed() {
-        let mut store = TestKvStore::new().await;
+        let store = TestKvStore::new().await;
         let value = "abcdefgh";
 
         let _ = store.put_value("key1", value).await;
@@ -35,8 +36,8 @@ mod tests {
         let _ = store.put_value("key3", value).await;
         let _ = store.put_value("key4", value).await;
 
-        let active_store = store.store;
-        let flushable_tables = store.flushable_tables;
+        let active_store = store.store.clone();
+        let flushable_tables = store.flushable_tables.clone();
 
         assert_eq!(flushable_tables.read().await.len(), 1);
 
@@ -172,5 +173,32 @@ mod tests {
 
         let result = store.get_value("key1").await;
         assert_eq!(result, Some("correct_value".into()));
+    }
+
+    #[tokio::test]
+    async fn test_event_loop_removes_table_after_flushresult() {
+        let (flush_result_tx, flush_result_rx) = tokio::sync::mpsc::channel(16);
+
+        let store =
+            KvStore::<640>::new_with_channels(flush_result_tx.clone(), flush_result_rx).await;
+
+        let id = 1337;
+        let dummy_table = Arc::new(BTreeMemTable::<640>::new());
+        {
+            let mut guard = store.flushable_tables.write().await;
+            guard.insert(id, Arc::clone(&dummy_table));
+        }
+
+        let path = std::path::PathBuf::from(format!("L0_{}.sst", uuid::Uuid::new_v4()));
+
+        let _ = flush_result_tx.send(FlushResult::Ok((1337, path))).await;
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let guard = store.flushable_tables.read().await;
+        assert!(
+            !guard.contains_key(&id),
+            "Table with ID {id} should have been removed by event_loop"
+        );
     }
 }
