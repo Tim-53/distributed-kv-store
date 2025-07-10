@@ -7,5 +7,5 @@
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit"
   },
-  "cSpell.words": ["byteorder", "memtable", "serde"]
+  "cSpell.words": ["byteorder", "memmap", "memtable", "mmap", "serde"]
 }

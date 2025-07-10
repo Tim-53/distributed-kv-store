@@ -106,9 +106,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
         // the value might be in a flushable table
         let flushable_tables = self.flushable_tables.read().await;
 
-        let values_from_flushable: Vec<LookupResult> = flushable_tables
-            .iter()
-            .map(|(id, table)| table.get(key.as_bytes()))
+        let values_from_flushable: Vec<LookupResult> = flushable_tables.values().map(|table| table.get(key.as_bytes()))
             .filter(|res| !matches!(res, LookupResult::NotFound))
             .collect();
 

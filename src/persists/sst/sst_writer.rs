@@ -1,5 +1,7 @@
 use std::{fs::File, io::Write, path::Path};
 
+use byteorder::{LittleEndian, WriteBytesExt};
+
 use super::{block_entry::BlockEntry, sst_table_block::SSTableBlock};
 
 pub struct SSTableWriter {}
@@ -42,6 +44,13 @@ impl SSTableWriter {
         }
 
         file.write_all(&data_buffer)?;
+
+        let metadata_offset = data_buffer.len() as u32;
+        let version: u32 = 1;
+
+        file.write_u32::<LittleEndian>(metadata_offset).unwrap();
+        file.write_u32::<LittleEndian>(version).unwrap();
+
         Ok(data_buffer.len())
     }
 }
