@@ -12,10 +12,9 @@ use axum::{
 use command::command_enum::CommandExecutor;
 use input::handlers::{Handler, delete_handler, get_all_handler, get_handler, put_handler};
 use persists::KvStore;
-use tokio::sync::RwLock;
 
 pub async fn run() {
-    let store = Arc::new(RwLock::new(KvStore::new().await));
+    let store = KvStore::new().await;
     let executor = CommandExecutor::new(store.clone());
     let handler = Arc::new(Handler::new(executor));
 
