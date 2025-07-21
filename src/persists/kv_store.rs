@@ -6,6 +6,7 @@ use std::{
 use tokio::sync::{Mutex, RwLock, mpsc};
 
 use crate::persists::{
+    lsm_tree::lsm_manager::LsmManager,
     memtable::{
         btree_map::BTreeMemTable,
         memtable_trait::{LookupResult, MemTable},
@@ -23,6 +24,7 @@ pub struct KvStore<const MAX_SIZE: usize> {
     sequence_number_counter: AtomicU64,
     flush_worker: Arc<FlushWorker<{ MAX_SIZE }>>,
     sender: mpsc::Sender<FlushCommand>,
+    lsm_manager: RwLock<LsmManager>,
 }
 
 impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
@@ -38,6 +40,15 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
         let flushable_tables = Arc::new(RwLock::new(HashMap::new()));
         let (flush_tx, flush_rx) = tokio::sync::mpsc::channel(16);
 
+        let lsm_manager = RwLock::new(LsmManager::new());
+
+        lsm_manager
+            .write()
+            .await
+            .initialize()
+            .await
+            .expect("failed to initialize lsm tree");
+
         let store = Arc::new(KvStore {
             store: Arc::new(RwLock::new(BTreeMemTable::new())),
             flushable_tables: flushable_tables.clone(),
@@ -48,6 +59,7 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
             sequence_number_counter: AtomicU64::new(0),
             flush_worker: Arc::new(FlushWorker::new(flushable_tables)),
             sender: flush_tx,
+            lsm_manager,
         });
 
         if store.read_from_wal {
@@ -82,10 +94,11 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     async fn event_loop(&self, mut receiver: mpsc::Receiver<FlushResult>) {
         while let Some(res) = receiver.recv().await {
             match res {
-                Ok((id, _path)) => {
-                    //TODO add path to lsm tree
+                Ok((id, path)) => {
                     let mut guard = self.flushable_tables.write().await;
                     guard.remove(&id);
+                    let mut lsm_manager = self.lsm_manager.write().await;
+                    lsm_manager.add_table(&path);
                 }
                 Err(_) => {
                     //check if error can be handled
@@ -96,41 +109,44 @@ impl<const MAX_SIZE: usize> KvStore<MAX_SIZE> {
     }
 
     pub async fn get_value(&self, key: &str) -> Option<String> {
-        let store = self.store.read().await;
-        if let LookupResult::Found((bytes, _seq_number)) = store.get(key.as_bytes()) {
-            return Some(
-                String::from_utf8(bytes.to_vec()).expect("Value is not a valid Utf8 String"),
-            );
-        }
-
-        // the value might be in a flushable table
-        let flushable_tables = self.flushable_tables.read().await;
-
-        let values_from_flushable: Vec<LookupResult> = flushable_tables.values().map(|table| table.get(key.as_bytes()))
-            .filter(|res| !matches!(res, LookupResult::NotFound))
-            .collect();
-
-        // we must ensure that we return the value with the highest valid sequence number
-        let highest = values_from_flushable.into_iter().max_by(|a, b| {
-            let a_seq = match a {
-                LookupResult::Deleted(seq) => *seq,
-                LookupResult::Found((_, seq)) => *seq,
-                LookupResult::NotFound => 0,
-            };
-            let b_seq = match b {
-                LookupResult::Deleted(seq) => *seq,
-                LookupResult::Found((_, seq)) => *seq,
-                LookupResult::NotFound => 0,
-            };
-            a_seq.cmp(&b_seq)
-        });
-
-        match highest {
-            Some(LookupResult::Found((value_bytes, _))) => {
-                Some(String::from_utf8_lossy(value_bytes).to_string())
+        let key_bytes = key.as_bytes();
+        {
+            let store = self.store.read().await;
+            if let LookupResult::Found((bytes, _)) = store.get(key_bytes) {
+                return Some(self.decode_utf8(bytes));
             }
-            _ => None,
         }
+
+        {
+            let flushable_tables = self.flushable_tables.read().await;
+
+            let highest = flushable_tables
+                .values()
+                .map(|table| table.get(key_bytes))
+                .filter(|res| !matches!(res, LookupResult::NotFound))
+                .max_by_key(|res| match res {
+                    LookupResult::Deleted(seq) => *seq,
+                    LookupResult::Found((_, seq)) => *seq,
+                    LookupResult::NotFound => 0,
+                });
+
+            if let Some(LookupResult::Found((value_bytes, _))) = highest {
+                return Some(self.decode_utf8(value_bytes));
+            }
+        }
+
+        {
+            let lsm_manager_lock = self.lsm_manager.read().await;
+            match lsm_manager_lock.get_value(key.as_bytes()) {
+                Some(table_result) => Some(self.decode_utf8(table_result.value)),
+                None => None,
+            }
+        }
+    }
+
+    // helper for consistent utf-8 decoding
+    fn decode_utf8(&self, bytes: &[u8]) -> String {
+        String::from_utf8_lossy(bytes).to_string()
     }
 
     pub async fn put_value(&self, key: &str, value: &str) -> Result<u64, std::io::Error> {

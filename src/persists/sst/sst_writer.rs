@@ -6,11 +6,13 @@ use super::{block_entry::BlockEntry, sst_table_block::SSTableBlock};
 
 pub struct SSTableWriter {}
 
+type EntryType = Vec<(Vec<u8>, (Option<Vec<u8>>, u64))>;
+
 impl SSTableWriter {
     pub fn write_to_file(
         &self,
         path: &Path,
-        entries: Vec<(Vec<u8>, (Option<Vec<u8>>, u64))>,
+        entries: EntryType,
         size: u32,
     ) -> Result<usize, std::io::Error> {
         let mut file = File::create_new(path)?;

@@ -2,7 +2,7 @@ mod tests {
     //idk why clippy is marking them as unused here
     //TODO resolve this
     #[allow(unused_imports)]
-    use crate::persists::lsm_tree::sorted_string_table::SortedStringTable;
+    use crate::persists::lsm_tree::sorted_string_table::sorted_string_table::SortedStringTable;
     #[allow(unused_imports)]
     use std::path::PathBuf;
 
@@ -11,8 +11,7 @@ mod tests {
         let file_path = PathBuf::from("test_snapshots/test_sstable.sst");
         assert!(file_path.exists());
 
-        let string_table = SortedStringTable::new(file_path.to_string_lossy().to_string())
-            .expect("Failed to parse SSTable");
+        let string_table = SortedStringTable::new(&file_path).expect("Failed to parse SSTable");
 
         let key = b"key2";
         let result = string_table.get(key);
@@ -30,8 +29,8 @@ mod tests {
 
         println!(
             "Found key: {:?}, value: {:?}",
-            std::str::from_utf8(&entry.key).unwrap(),
-            std::str::from_utf8(&entry.value).unwrap()
+            std::str::from_utf8(entry.key).unwrap(),
+            std::str::from_utf8(entry.value).unwrap()
         );
     }
 }

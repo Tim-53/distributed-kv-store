@@ -3,9 +3,10 @@ pub struct TableResult<'a> {
     _mmap: Arc<Mmap>,
     pub key: &'a [u8],
     pub value: &'a [u8],
+    pub sequence_number: u64,
 }
 
-use std::{error::Error, fs::File, ops::Range, sync::Arc};
+use std::{error::Error, fs::File, ops::Range, path::Path, sync::Arc};
 
 use byteorder::{ByteOrder, LittleEndian};
 use memmap2::Mmap;
@@ -16,7 +17,9 @@ struct DataEntryBlock {
     data_buffer: Arc<Mmap>,
     key_range: Range<usize>,
     value_range: Range<usize>,
-    offset: usize,
+    _offset: usize,
+    //TODO use ref here
+    seq_number: u64,
 }
 
 impl DataEntryBlock {
@@ -49,7 +52,7 @@ impl DataEntryBlock {
             return None;
         }
 
-        let _seq = LittleEndian::read_u64(&buffer[offset..offset + 8]);
+        let seq = LittleEndian::read_u64(&buffer[offset..offset + 8]);
         offset += 8;
 
         Some((
@@ -57,7 +60,8 @@ impl DataEntryBlock {
                 data_buffer: buffer,
                 key_range,
                 value_range,
-                offset,
+                _offset: offset,
+                seq_number: seq,
             },
             offset,
         ))
@@ -76,12 +80,13 @@ impl DataEntryBlock {
             _mmap: Arc::clone(&self.data_buffer),
             key: self.key(),
             value: self.value(),
+            sequence_number: self.seq_number,
         }
     }
 }
 
 struct DataBlock {
-    data_buffer: Arc<Mmap>,
+    _data_buffer: Arc<Mmap>,
     blocks: Vec<DataEntryBlock>,
 }
 
@@ -104,7 +109,7 @@ impl DataBlock {
         }
 
         DataBlock {
-            data_buffer: Arc::clone(buffer),
+            _data_buffer: Arc::clone(buffer),
             blocks: parsed_blocks,
         }
     }
@@ -121,12 +126,12 @@ pub struct SortedStringTable {
     first_key: String,
     last_key: String,
     data_blocks: Vec<DataBlock>,
-    mmap: Arc<Mmap>,
-    meta_data: MetaData,
+    _mmap: Arc<Mmap>,
+    _meta_data: MetaData,
 }
 
 impl SortedStringTable {
-    pub fn new(path: String) -> Result<Self, Box<dyn Error>> {
+    pub fn new(path: &Path) -> Result<Self, Box<dyn Error>> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let mmap_arc = Arc::new(mmap);
@@ -157,12 +162,16 @@ impl SortedStringTable {
             first_key,
             last_key,
             data_blocks: blocks,
-            mmap: mmap_arc,
-            meta_data,
+            _mmap: mmap_arc,
+            _meta_data: meta_data,
         })
     }
 
     pub fn get(&self, key: &[u8]) -> Option<TableResult> {
+        if key < self.first_key.as_bytes() || key > self.last_key.as_bytes() {
+            return None;
+        }
+
         for (i, block) in self.data_blocks.iter().enumerate() {
             if let Some(result) = block.get(key) {
                 println!("Found in block {i}");
@@ -175,7 +184,7 @@ impl SortedStringTable {
 
 struct MetaData {
     metadata_offset: usize,
-    version: usize,
+    _version: usize,
 }
 
 fn read_metadata(mmap: &Mmap) -> MetaData {
@@ -186,6 +195,6 @@ fn read_metadata(mmap: &Mmap) -> MetaData {
 
     MetaData {
         metadata_offset,
-        version,
+        _version: version,
     }
 }

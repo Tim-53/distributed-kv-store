@@ -41,7 +41,7 @@ async fn flush_worker() {
 
     for _ in 0..2 {
         match flush_result_rx.recv().await.expect("missing flush result") {
-            Ok((id, path)) => {
+            Ok((_id, path)) => {
                 assert!(
                     path.exists(),
                     "Expected flushed SSTable at {}, but it does not exist",
