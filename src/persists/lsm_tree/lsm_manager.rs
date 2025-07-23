@@ -1,7 +1,7 @@
 use std::{error::Error, fs, path::Path};
 
-use crate::persists::lsm_tree::sorted_string_table::sorted_string_table::{
-    SortedStringTable, TableResult,
+use crate::persists::lsm_tree::sorted_string_table::{
+    sorted_string_table::SortedStringTable, table_result::TableResult,
 };
 
 pub struct LsmManager {

@@ -1,17 +1,12 @@
-pub struct TableResult<'a> {
-    //the arc only exists for the lifetime
-    _mmap: Arc<Mmap>,
-    pub key: &'a [u8],
-    pub value: &'a [u8],
-    pub sequence_number: u64,
-}
-
 use std::{error::Error, fs::File, ops::Range, path::Path, sync::Arc};
 
 use byteorder::{ByteOrder, LittleEndian};
 use memmap2::Mmap;
 
-use crate::persists::sst::sst_table_block::{BLOCK_SIZE, HEADER_SIZE};
+use crate::persists::lsm_tree::sorted_string_table::{
+    sst_table_block::{BLOCK_SIZE, HEADER_SIZE},
+    table_result::TableResult,
+};
 
 struct DataEntryBlock {
     data_buffer: Arc<Mmap>,
@@ -120,6 +115,24 @@ impl DataBlock {
             .map(|block| block.get())
             .find(|res| res.key == key)
     }
+
+    pub fn iter(&self) -> DataBlockIterator {
+        DataBlockIterator {
+            inner: self.blocks.iter(),
+        }
+    }
+}
+
+pub struct DataBlockIterator<'a> {
+    inner: std::slice::Iter<'a, DataEntryBlock>,
+}
+
+impl<'a> Iterator for DataBlockIterator<'a> {
+    type Item = TableResult<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|entry_block| entry_block.get())
+    }
 }
 
 pub struct SortedStringTable {
@@ -138,6 +151,8 @@ impl SortedStringTable {
 
         let meta_data = read_metadata(&mmap_arc);
 
+        println!("metadata offset{}", meta_data.metadata_offset);
+
         let mut blocks = Vec::new();
         for i in (0..meta_data.metadata_offset).step_by(BLOCK_SIZE) {
             let start = i;
@@ -145,6 +160,8 @@ impl SortedStringTable {
             let block = DataBlock::from_buffer(&mmap_arc, start, end);
             blocks.push(block);
         }
+
+        println!("found {}", blocks.len());
 
         let first_key = blocks
             .first()
@@ -179,6 +196,48 @@ impl SortedStringTable {
             }
         }
         None
+    }
+
+    pub fn iter(&self) -> SSTableIterator<'_> {
+        SSTableIterator {
+            remaining_blocks: self.data_blocks.iter(),
+            current_block_iter: None,
+        }
+    }
+}
+
+pub struct SSTableIterator<'a> {
+    remaining_blocks: std::slice::Iter<'a, DataBlock>,
+    current_block_iter: Option<DataBlockIterator<'a>>,
+}
+
+impl<'a> Iterator for SSTableIterator<'a> {
+    type Item = TableResult<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            //entry from current block
+            if let Some(iter) = &mut self.current_block_iter {
+                if let Some(item) = iter.next() {
+                    return Some(item);
+                }
+            }
+            //enter next block
+            match self.remaining_blocks.next() {
+                Some(next_block) => {
+                    self.current_block_iter = Some(next_block.iter());
+                }
+                None => return None,
+            }
+        }
+    }
+}
+impl<'a> IntoIterator for &'a SortedStringTable {
+    type Item = TableResult<'a>;
+    type IntoIter = SSTableIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }
 

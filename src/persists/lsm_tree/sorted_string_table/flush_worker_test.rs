@@ -3,8 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::persists::{
+    lsm_tree::sorted_string_table::flush_worker::{FlushCommand, FlushWorker},
     memtable::{btree_map::BTreeMemTable, memtable_trait::MemTable},
-    sst::flush_worker::{FlushCommand, FlushWorker},
 };
 
 #[tokio::test]

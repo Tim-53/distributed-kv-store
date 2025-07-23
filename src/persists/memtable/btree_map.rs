@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use crate::persists::{memtable::memtable_trait::MemTableValue, sst::sst_table_block::HEADER_SIZE};
+use crate::persists::{
+    lsm_tree::sorted_string_table::sst_table_block::HEADER_SIZE,
+    memtable::memtable_trait::MemTableValue,
+};
 
 use super::memtable_trait::{LookupResult, MemTable};
 

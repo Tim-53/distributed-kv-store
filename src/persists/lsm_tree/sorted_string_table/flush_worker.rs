@@ -3,8 +3,8 @@ use std::{collections::HashMap, error::Error, sync::Arc};
 use tokio::sync::{RwLock, mpsc};
 
 use crate::persists::{
+    lsm_tree::sorted_string_table::sst_writer::SSTableWriter,
     memtable::{btree_map::BTreeMemTable, memtable_trait::MemTable},
-    sst::sst_writer::SSTableWriter,
 };
 
 pub enum FlushCommand {
@@ -24,7 +24,11 @@ impl<const MAX_SIZE: usize> FlushWorker<MAX_SIZE> {
     ) -> Self {
         Self {
             flushable_tables,
-            table_writer: SSTableWriter {},
+            table_writer: SSTableWriter::new(std::path::PathBuf::from(format!(
+                "L0_{}.sst",
+                uuid::Uuid::new_v4()
+            )))
+            .expect("failed to open new file"),
         }
     }
 
@@ -50,11 +54,11 @@ impl<const MAX_SIZE: usize> FlushWorker<MAX_SIZE> {
             let buffer = table.flush();
             let path = std::path::PathBuf::from(format!("L0_{}.sst", uuid::Uuid::new_v4()));
 
-            let result: FlushResult = self
-                .table_writer
-                .write_to_file(&path, buffer, table.bytes_used() as u32)
-                .map(|_| (*id, path.clone()))
-                .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>);
+            //TODO use new file writer here
+            let result: FlushResult =
+                SSTableWriter::write_to_file(&path, buffer, table.bytes_used() as u32)
+                    .map(|_| (*id, path.clone()))
+                    .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>);
 
             let _ = tx.send(result).await;
         }

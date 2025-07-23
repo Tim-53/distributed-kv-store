@@ -2,8 +2,8 @@
 mod tests {
     use crate::persists::{
         KvStore,
+        lsm_tree::sorted_string_table::flush_worker::FlushResult,
         memtable::{btree_map::BTreeMemTable, memtable_trait::MemTable},
-        sst::flush_worker::FlushResult,
     };
     use std::sync::Arc;
     use tokio::task::JoinSet;

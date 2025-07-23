@@ -3,7 +3,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use crate::persists::sst::sst_writer::SSTableWriter;
+    use crate::persists::lsm_tree::sorted_string_table::sst_writer::SSTableWriter;
 
     #[test]
     fn test_write_simple_sstable() {
@@ -27,10 +27,7 @@ mod tests {
 
         let _ = fs::remove_file(&tmp_file);
 
-        let writer = SSTableWriter {};
-
-        writer
-            .write_to_file(&tmp_file, entries, estimated_size as u32)
+        SSTableWriter::write_to_file(&tmp_file, entries, estimated_size as u32)
             .expect("write_to_file failed");
         assert!(tmp_file.exists());
         let metadata = fs::metadata(&tmp_file).unwrap();

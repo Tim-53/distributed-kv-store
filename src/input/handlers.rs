@@ -1,5 +1,4 @@
 use crate::command::command_enum::CommandExecutor;
-use crate::persists::sst::sst_table_block::BLOCK_SIZE;
 use axum::debug_handler;
 use axum::{
     Json,
@@ -57,10 +56,11 @@ pub async fn put_handler(
     State(handler): State<Arc<Handler>>,
     Json(payload): Json<PutRequest>,
 ) -> Result<Json<&'static str>, StatusCode> {
-    let entry_size = 4 + payload.key.len() + 4 + payload.value.len();
-    if entry_size > BLOCK_SIZE {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    //TODO revert
+    // let entry_size = 4 + payload.key.len() + 4 + payload.value.len();
+    // if entry_size > BLOCK_SIZE {
+    //     return Err(StatusCode::BAD_REQUEST);
+    // }
     //TODO add validPayloadStruct later
 
     handler.handle_put(payload).await;

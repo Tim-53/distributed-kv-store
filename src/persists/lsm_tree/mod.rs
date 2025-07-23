@@ -1,2 +1,3 @@
+mod compaction;
 pub mod lsm_manager;
-mod sorted_string_table;
+pub mod sorted_string_table;

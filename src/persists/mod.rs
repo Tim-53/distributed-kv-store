@@ -5,4 +5,3 @@ pub mod wal;
 
 pub use kv_store::*;
 mod lsm_tree;
-pub mod sst;
